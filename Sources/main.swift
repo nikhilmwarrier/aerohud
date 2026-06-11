@@ -10,79 +10,128 @@ struct AeroSpaceWindow: Identifiable {
     let appIcon: NSImage
 }
 
-// Executes any general AeroSpace command safely in the background
-func runAeroSpace(arguments: [String]) -> String {
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/aerospace")
-    process.arguments = arguments
+func parseCommandLineArgs() -> (matrix: [[String]], columns: Int) {
+    let args = CommandLine.arguments
     
-    let outputPipe = Pipe()
-    process.standardOutput = outputPipe
+    let usage = """
+    Usage: aerohud <COLS> <workspaces...>
+           aerohud -h | --help
     
-    do {
-        try process.run()
-        process.waitUntilExit()
-        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        return String(data: data, encoding: .utf8) ?? ""
-    } catch {
-        print("Error executing AeroSpace command \(arguments): \(error)")
-        return ""
+    Example:
+      aerohud 3 1 2 3 q w e a s d
+      aerohud 4 1 2 3 4 q w e r
+    """
+    
+    if args.contains("-h") || args.contains("--help") {
+        print(usage)
+        exit(0)
     }
-}
-
-func fetchAeroSpaceWindows() -> [AeroSpaceWindow] {
-    let outputString = runAeroSpace(arguments: ["list-windows", "--all", "--format", "%{window-id}|%{app-name}|%{window-title}|%{workspace}"])
-    if outputString.isEmpty { return [] }
     
-    var parsedWindows: [AeroSpaceWindow] = []
-    let lines = outputString.components(separatedBy: .newlines)
-    let workspaceShared = NSWorkspace.shared
+    guard args.count > 2 else {
+        print("Error: Missing column count or workspace keys.\n")
+        print(usage)
+        exit(1)
+    }
     
-    for line in lines {
-        let components = line.components(separatedBy: "|")
-        if components.count >= 4 {
-            let id = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
-            let appName = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
-            let windowTitle = components[2].trimmingCharacters(in: .whitespacesAndNewlines)
-            let workspace = components[3].trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            if !id.isEmpty {
-                var iconImage = workspaceShared.icon(forFile: "/System/Library/CoreServices/Finder.app")
-                
-                let standardPath = "/Applications/\(appName).app"
-                let systemPath = "/System/Applications/\(appName).app"
-                let userPath = "\(FileManager.default.homeDirectoryForCurrentUser.path)/Applications/\(appName).app"
-                
-                if FileManager.default.fileExists(atPath: standardPath) {
-                    iconImage = workspaceShared.icon(forFile: standardPath)
-                } else if FileManager.default.fileExists(atPath: systemPath) {
-                    iconImage = workspaceShared.icon(forFile: systemPath)
-                } else if FileManager.default.fileExists(atPath: userPath) {
-                    iconImage = workspaceShared.icon(forFile: userPath)
-                }
-                
-                parsedWindows.append(AeroSpaceWindow(
-                    id: id,
-                    appName: appName,
-                    windowTitle: windowTitle,
-                    workspace: workspace,
-                    appIcon: iconImage
-                ))
-            }
+    guard let columns = Int(args[1]), columns > 0 else {
+        print("Error: Column count must be a positive integer.\n")
+        print(usage)
+        exit(1)
+    }
+    
+    let workspaces = Array(args[2...])
+    var matrix: [[String]] = []
+    var currentRow: [String] = []
+    
+    for item in workspaces {
+        currentRow.append(item)
+        if currentRow.count == columns {
+            matrix.append(currentRow)
+            currentRow = []
         }
     }
-    return parsedWindows
+    if !currentRow.isEmpty {
+        matrix.append(currentRow)
+    }
+    
+    return (matrix, columns)
 }
 
-// Helper to switch workspaces and kill the app cleanly
+func fetchAeroSpaceWindows(completion: @escaping ([AeroSpaceWindow]) -> Void) {
+    DispatchQueue.global(qos: .userInteractive).async {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/aerospace")
+        process.arguments = ["list-windows", "--all", "--format", "%{window-id}|%{app-name}|%{window-title}|%{workspace}"]
+        
+        let outputPipe = Pipe()
+        process.standardOutput = outputPipe
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            guard let outputString = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
+            
+            var parsedWindows: [AeroSpaceWindow] = []
+            let lines = outputString.components(separatedBy: .newlines)
+            let workspaceShared = NSWorkspace.shared
+            
+            for line in lines {
+                let components = line.components(separatedBy: "|")
+                if components.count >= 4 {
+                    let id = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                    let appName = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                    let windowTitle = components[2].trimmingCharacters(in: .whitespacesAndNewlines)
+                    let workspace = components[3].trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    if !id.isEmpty {
+                        var iconImage = workspaceShared.icon(forFile: "/System/Library/CoreServices/Finder.app")
+                        
+                        let standardPath = "/Applications/\(appName).app"
+                        let systemPath = "/System/Applications/\(appName).app"
+                        let userPath = "\(FileManager.default.homeDirectoryForCurrentUser.path)/Applications/\(appName).app"
+                        
+                        if FileManager.default.fileExists(atPath: standardPath) {
+                            iconImage = workspaceShared.icon(forFile: standardPath)
+                        } else if FileManager.default.fileExists(atPath: systemPath) {
+                            iconImage = workspaceShared.icon(forFile: systemPath)
+                        } else if FileManager.default.fileExists(atPath: userPath) {
+                            iconImage = workspaceShared.icon(forFile: userPath)
+                        }
+                        
+                        parsedWindows.append(AeroSpaceWindow(
+                            id: id,
+                            appName: appName,
+                            windowTitle: windowTitle,
+                            workspace: workspace,
+                            appIcon: iconImage
+                        ))
+                    }
+                }
+            }
+            DispatchQueue.main.async { completion(parsedWindows) }
+        } catch {
+            DispatchQueue.main.async { completion([]) }
+        }
+    }
+}
+
 func switchToWorkspace(_ workspace: String) {
-    _ = runAeroSpace(arguments: ["workspace", workspace])
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/aerospace")
+    process.arguments = ["workspace", workspace]
+    try? process.run()
     NSApp.terminate(nil)
 }
 
 struct WorkspaceCardView: View {
     let key: String
     let windows: [AeroSpaceWindow]
+    let isLoading: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -92,7 +141,7 @@ struct WorkspaceCardView: View {
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
                 Spacer()
-                if !windows.isEmpty {
+                if !windows.isEmpty && !isLoading {
                     Text("\(windows.count)")
                         .font(.caption2)
                         .fontWeight(.medium)
@@ -106,7 +155,9 @@ struct WorkspaceCardView: View {
             
             Divider()
             
-            if windows.isEmpty {
+            if isLoading {
+                Spacer()
+            } else if windows.isEmpty {
                 Spacer()
                 HStack {
                     Spacer()
@@ -148,7 +199,7 @@ struct WorkspaceCardView: View {
             }
         }
         .padding(16)
-        .frame(width: 260, height: 180, alignment: .topLeading)
+        .frame(width: 240, height: 170, alignment: .topLeading)
         .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
@@ -157,35 +208,25 @@ struct WorkspaceCardView: View {
                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 16))
-        // Click action: instantly switches to this workspace
         .onTapGesture {
             switchToWorkspace(key)
         }
     }
 }
 
-
 struct GridHUDView: View {
-    let gridKeys = [
-        ["1", "2", "3"],
-        ["q", "w", "e"],
-        ["a", "s", "d"]
-    ]
+    let gridKeys: [[String]]
     
-    let workspaceData: [String: [AeroSpaceWindow]]
+    @State private var workspaceData: [String: [AeroSpaceWindow]] = [:]
+    @State private var isLoading = true
     
-    init() {
-        let windows = fetchAeroSpaceWindows()
-        self.workspaceData = Dictionary(grouping: windows, by: { $0.workspace })
+    init(matrix: [[String]]) {
+        self.gridKeys = matrix
     }
     
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 24) {
             VStack(spacing: 4) {
-                // Text("AeroSpace Grid Monitor")
-                //     .font(.system(.title2, design: .default))
-                //     .fontWeight(.bold)
-                //     .foregroundColor(.primary)
                 Text("Click a desktop or press its key to jump. ⎋ to cancel.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -193,20 +234,25 @@ struct GridHUDView: View {
             .padding(.top, 50)
             
             ForEach(gridKeys, id: \.self) { row in
-                HStack(spacing: 24) {
+                HStack(spacing: 20) {
                     ForEach(row, id: \.self) { key in
-                        WorkspaceCardView(key: key, windows: workspaceData[key] ?? [])
+                        WorkspaceCardView(key: key, windows: workspaceData[key] ?? [], isLoading: isLoading)
                     }
                 }
             }
             Spacer()
         }
-        .padding(40)
+        .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Background tint layer intercepts clicks outside cards to exit
         .background(Color.black.opacity(0.25)) 
         .onTapGesture {
             NSApp.terminate(nil)
+        }
+        .onAppear {
+            fetchAeroSpaceWindows { windows in
+                self.workspaceData = Dictionary(grouping: windows, by: { $0.workspace })
+                self.isLoading = false
+            }
         }
     }
 }
@@ -229,9 +275,12 @@ struct VisualEffectView: NSViewRepresentable {
     }
 }
 
-
 class HUDWindow: NSPanel {
-    init() {
+    let validKeys: [String]
+    
+    init(matrix: [[String]]) {
+        self.validKeys = matrix.flatMap { $0 }
+        
         super.init(
             contentRect: NSScreen.main?.frame ?? .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -244,23 +293,20 @@ class HUDWindow: NSPanel {
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.hasShadow = false
         
-        let contentView = NSHostingView(rootView: GridHUDView())
+        let contentView = NSHostingView(rootView: GridHUDView(matrix: matrix))
         self.contentView = contentView
     }
     
     override var canBecomeKey: Bool { return true }
     override var canBecomeMain: Bool { return true }
     
-    // Intercept hardware key triggers safely
     override func keyDown(with event: NSEvent) {
-        if event.keyCode == 53 { // Escape Key
+        if event.keyCode == 53 {
             NSApp.terminate(nil)
             return
         }
         
-        // Read characters typed directly while the window is active
         if let chars = event.charactersIgnoringModifiers?.lowercased() {
-            let validKeys = ["1", "2", "3", "q", "w", "e", "a", "s", "d"]
             if validKeys.contains(chars) {
                 switchToWorkspace(chars)
                 return
@@ -273,15 +319,22 @@ class HUDWindow: NSPanel {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: HUDWindow?
+    let matrix: [[String]]
+    
+    init(matrix: [[String]]) {
+        self.matrix = matrix
+        super.init()
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        window = HUDWindow()
+        window = HUDWindow(matrix: matrix)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true) 
     }
 }
 
+let configuration = parseCommandLineArgs()
 let app = NSApplication.shared
-let delegate = AppDelegate()
+let delegate = AppDelegate(matrix: configuration.matrix)
 app.delegate = delegate
 app.run()
