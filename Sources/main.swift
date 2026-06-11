@@ -12,10 +12,13 @@ struct AeroSpaceWindow: Identifiable {
 
 func parseCommandLineArgs() -> (matrix: [[String]], columns: Int) {
     let args = CommandLine.arguments
+
+    let version = "1.0.0"
     
     let usage = """
     Usage: aerohud <COLS> <workspaces...>
            aerohud -h | --help
+           aerohud -v | --version
     
     Example:
       aerohud 3 1 2 3 q w e a s d
@@ -24,6 +27,11 @@ func parseCommandLineArgs() -> (matrix: [[String]], columns: Int) {
     
     if args.contains("-h") || args.contains("--help") {
         print(usage)
+        exit(0)
+    }
+
+    if args.contains("-v") || args.contains("--version") {
+        print(version)
         exit(0)
     }
     
@@ -340,6 +348,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true) 
     }
 }
+
+// If new instance spawned, kill old instance.
+
+let lockFilePath = NSTemporaryDirectory() + "com.nik.AeroSpaceGridHUD.lock"
+
+// Try to read and kill the existing instance if it exists
+if let existingPidString = try? String(contentsOfFile: lockFilePath),
+   let existingPid = Int32(existingPidString.trimmingCharacters(in: .whitespacesAndNewlines)) {
+    // send signal 0 to check if process exists, then kill it
+    if kill(existingPid, 0) == 0 {
+        kill(existingPid, SIGKILL) 
+    }
+}
+
+// Write the current process ID to the lock file
+let currentPid = ProcessInfo.processInfo.processIdentifier
+try? String(currentPid).write(toFile: lockFilePath, atomically: true, encoding: .utf8)
 
 let configuration = parseCommandLineArgs()
 let app = NSApplication.shared
