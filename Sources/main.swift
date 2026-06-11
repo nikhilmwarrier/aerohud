@@ -235,6 +235,7 @@ struct GridHUDView: View {
     
     @State private var workspaceData: [String: [AeroSpaceWindow]] = [:]
     @State private var isLoading = true
+    @State private var bgOpacity: Double = 0.0  // Track background state for animation
     
     init(matrix: [[String]]) {
         self.gridKeys = matrix
@@ -260,11 +261,17 @@ struct GridHUDView: View {
         }
         .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.25)) 
+        // Set dynamic opacity and attach a smooth linear transition
+        .background(Color.black.opacity(bgOpacity)) 
         .onTapGesture {
             NSApp.terminate(nil)
         }
         .onAppear {
+            // Trigger the background fade-in immediately on render
+            withAnimation(.linear(duration: 0.12)) {
+                self.bgOpacity = 0.25
+            }
+            
             fetchAeroSpaceWindows { windows in
                 self.workspaceData = Dictionary(grouping: windows, by: { $0.workspace })
                 self.isLoading = false
