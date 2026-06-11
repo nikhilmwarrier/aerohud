@@ -90,18 +90,26 @@ func fetchAeroSpaceWindows(completion: @escaping ([AeroSpaceWindow]) -> Void) {
                     
                     if !id.isEmpty {
                         var iconImage = workspaceShared.icon(forFile: "/System/Library/CoreServices/Finder.app")
-                        
-                        let standardPath = "/Applications/\(appName).app"
-                        let systemPath = "/System/Applications/\(appName).app"
-                        let userPath = "\(FileManager.default.homeDirectoryForCurrentUser.path)/Applications/\(appName).app"
-                        
-                        if FileManager.default.fileExists(atPath: standardPath) {
-                            iconImage = workspaceShared.icon(forFile: standardPath)
-                        } else if FileManager.default.fileExists(atPath: systemPath) {
-                            iconImage = workspaceShared.icon(forFile: systemPath)
-                        } else if FileManager.default.fileExists(atPath: userPath) {
-                            iconImage = workspaceShared.icon(forFile: userPath)
-                        }
+
+                            // 1. Instant Memory Look-up: Match running application icon instantly by process name
+                            if let runningApp = workspaceShared.runningApplications.first(where: { $0.localizedName?.lowercased() == appName.lowercased() }) {
+                                if let appIcon = runningApp.icon {
+                                    iconImage = appIcon
+                                }
+                            } else {
+                                // 2. Fast Path Fallback: If app is hidden/minimized or name matches bundle folder exactly
+                                let standardPath = "/Applications/\(appName).app"
+                                    let systemPath = "/System/Applications/\(appName).app"
+                                    let userPath = "\(FileManager.default.homeDirectoryForCurrentUser.path)/Applications/\(appName).app"
+
+                                    if FileManager.default.fileExists(atPath: standardPath) {
+                                        iconImage = workspaceShared.icon(forFile: standardPath)
+                                    } else if FileManager.default.fileExists(atPath: systemPath) {
+                                        iconImage = workspaceShared.icon(forFile: systemPath)
+                                    } else if FileManager.default.fileExists(atPath: userPath) {
+                                        iconImage = workspaceShared.icon(forFile: userPath)
+                                    }
+                            }
                         
                         parsedWindows.append(AeroSpaceWindow(
                             id: id,
