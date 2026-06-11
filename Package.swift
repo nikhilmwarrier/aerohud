@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "AeroHUD",
     platforms: [
-        .macOS(.v14) // Targets macOS Sonoma or later for modern SwiftUI
+        .macOS(.v11) 
     ],
     targets: [
         .executableTarget(
