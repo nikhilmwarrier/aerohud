@@ -4,7 +4,7 @@ import SwiftUI
 func parseCommandLineArgs() -> (matrix: [[String]], columns: Int) {
     let args = CommandLine.arguments
 
-    let version = "1.0.0"
+    let version = "1.1.0"
 
     let usage = """
     Usage: aerohud <COLS> <workspaces...>
