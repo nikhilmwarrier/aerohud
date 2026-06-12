@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct WorkspaceCardView: View {
     let key: String
@@ -13,71 +12,50 @@ struct WorkspaceCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // Header
             HStack {
-                Text(key.uppercased())
-                    .font(.system(.title3, design: .rounded))
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
+                Text(key.uppercased()).font(.system(.title3, design: .rounded)).fontWeight(.bold)
                 Spacer()
                 if !windows.isEmpty && !isLoading {
-                    Text("\(windows.count)")
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color(NSColor.labelColor).opacity(0.08))
-                        .cornerRadius(6)
+                    Text("\(windows.count)").font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color(NSColor.labelColor).opacity(0.08)).cornerRadius(6)
                 }
             }
 
             Divider()
 
-            if isLoading {
-                Spacer()
-            } else if windows.isEmpty {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Text("No Windows")
-                        .font(.subheadline)
-                        .foregroundColor(Color(NSColor.tertiaryLabelColor))
-                    Spacer()
-                }
-                Spacer()
-            } else {
+            // Content
+            ZStack {
+                // Persistent ScrollView so ForEach can animate insertions/removals smoothly
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(windows) { window in
                             HStack(spacing: 10) {
-                                Image(nsImage: window.appIcon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 22, height: 22)
-
+                                Image(nsImage: window.appIcon).resizable().frame(width: 22, height: 22)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(window.appName)
-                                        .font(.system(.body, design: .default))
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-
+                                    Text(window.appName).font(.body).lineLimit(1)
                                     if !window.windowTitle.isEmpty {
-                                        Text(window.windowTitle)
-                                            .font(.footnote)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(1)
+                                        Text(window.windowTitle).font(.footnote).foregroundColor(.secondary).lineLimit(1)
                                     }
                                 }
                             }
-                            .onDrag {
-                                NSItemProvider(object: window.id as NSString)
-                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .draggable(window.id)
+                            .transition(.move(edge: .top).combined(with: .opacity))
                         }
                     }
-                    .padding(.vertical, 2)
+                }
+
+                // Empty state text overlaid independently
+                if windows.isEmpty {
+                    Text("No Windows")
+                        .font(.subheadline)
+                        .foregroundColor(Color(NSColor.tertiaryLabelColor))
+                        .transition(.opacity)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(isLoading ? nil : .default, value: windows.count)
         }
         .padding(16)
         .frame(width: 240, height: 170, alignment: .topLeading)
@@ -91,34 +69,18 @@ struct WorkspaceCardView: View {
             }
         )
         .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(isDropTargeted || isActive
-                    ? Color(NSColor.controlAccentColor)
-                    : Color(NSColor.separatorColor).opacity(0.3),
-                        lineWidth: isDropTargeted ? 3 : isActive ? 2.5 : 1)
+                .stroke(isDropTargeted || isActive ? Color(NSColor.controlAccentColor) : Color(NSColor.separatorColor).opacity(0.3), lineWidth: isDropTargeted ? 3 : isActive ? 2.5 : 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 16))
-        .onTapGesture {
-            switchToWorkspace(key)
-        }
-        .onDrop(of: [.plainText], isTargeted: $isDropTargeted) { providers in
-            guard let provider = providers.first else { return false }
-            provider.loadObject(ofClass: NSString.self) { item, _ in
-                if let windowId = item as? String {
-                    DispatchQueue.main.async {
-                        moveWindowToWorkspace(windowId: windowId, workspace: key) {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                onWindowsChanged()
-                            }
-
-                        }
-                    }
-                }
+        .onTapGesture { switchToWorkspace(key) }
+        .dropDestination(for: String.self) { items, _ in
+            if let windowId = items.first {
+                moveWindowToWorkspace(windowId: windowId, workspace: key, completion: onWindowsChanged)
             }
             return true
-        }
+        } isTargeted: { isDropTargeted = $0 }
     }
 }
 
@@ -178,8 +140,13 @@ struct GridHUDView: View {
             }
 
             fetchAeroSpaceWindows { windows in
+                // Populate data immediately
                 self.workspaceData = Dictionary(grouping: windows, by: { $0.workspace })
-                self.isLoading = false
+                
+                // Allow the view to render the initial state, then enable animations
+                DispatchQueue.main.async {
+                    self.isLoading = false
+                }
             }
         }
     }
