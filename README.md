@@ -7,11 +7,17 @@
 
 ### About
 
-A little utility designed for my own esoteric workflow, where I have nine desktops in 3x3 grid.
+Grid overview for the [Aerospace tiling WM](https://github.com/nikitabobko/AeroSpace) on macOS.
 
-This app helps me recall which window was where, and quickly switch desktops.
+The ultimate coping mechanism for anyone who misses true 2-d desktop grids from more [civilised](https://youtu.be/_w_ksgcNnYc) <a href="https://github.com/user-attachments/assets/21f966ef-139c-445f-9645-9eea47eea4a4">environments</a>.
 
-Also supports dragging and dropping windows between workspaces.
+- Simple macOS binary called directly from AeroSpace (no `.app` wrapper or permission wrangling).
+
+- Fully configurable grid, configured via command-line args.
+
+- Supports dragging and dropping windows between different workspaces directly from the HUD.
+
+Inspired by [GridLion](https://blog.hopefullyuseful.com/blog/macos-needs-its-grid-back/).
 
 ### Preview
 
