@@ -41,6 +41,7 @@ struct WorkspaceCardView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .draggable(window.id)
+                            .onTapGesture { focusWindow(windowId: window.id) }
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                     }

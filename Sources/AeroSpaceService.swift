@@ -104,6 +104,15 @@ func switchToWorkspace(_ workspace: String) {
     NSApp.terminate(nil)
 }
 
+func focusWindow(windowId: String) {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/aerospace")
+    process.arguments = ["focus", "--window-id", windowId]
+    try? process.run()
+    process.waitUntilExit()
+    NSApp.terminate(nil)
+}
+
 func moveWindowToWorkspace(windowId: String, workspace: String, completion: @escaping () -> Void) {
     DispatchQueue.global(qos: .userInteractive).async {
         let process = Process()
