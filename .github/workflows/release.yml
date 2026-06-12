@@ -1,0 +1,36 @@
+name: Build and Release aerohud
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # The clean command is standard, but the build command now specifies both architectures
+    - name: Clean and Build Universal Release
+      run: |
+        swift package clean
+        swift build -c release --arch arm64 --arch x86_64
+
+    # Optional verification step to ensure the binary is "fat" (contains both architectures)
+    - name: Verify Universal Binary
+      run: |
+        file .build/apple/Products/Release/aerohud
+        lipo -info .build/apple/Products/Release/aerohud
+
+    # Create the release using the updated universal binary path
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: .build/apple/Products/Release/aerohud
+        generate_release_notes: true

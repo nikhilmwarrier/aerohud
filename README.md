@@ -10,7 +10,9 @@ This app helps me recall which window was where, and quickly switch desktops.
 
 ### Install
 
-For arm64 Macs (macOS 11+), download the binary from [Releases](https://github.com/nikhilmwarrier/aerohud/releases) to `~/.local/bin/`.  
+Supports macOS 11+.   
+
+Download the binary from [Releases](https://github.com/nikhilmwarrier/aerohud/releases) to `~/.local/bin/`.  
 
 Otherwise see [build instructions ](#build) below.
 
