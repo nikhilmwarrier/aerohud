@@ -1,6 +1,36 @@
 import AppKit
 import SwiftUI
 
+struct WindowRowView: View {
+    let window: AeroSpaceWindow
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(nsImage: window.appIcon).resizable().frame(width: 22, height: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(window.appName).font(.body).lineLimit(1)
+                if !window.windowTitle.isEmpty {
+                    Text(window.windowTitle).font(.footnote).foregroundColor(.secondary).lineLimit(1)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(NSColor.separatorColor))
+                .opacity(isHovered ? 0.3 : 0)
+        )
+        .onHover { isHovered = $0 }
+        .draggable(window.id)
+        .onTapGesture { focusWindow(windowId: window.id) }
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+}
+
 struct WorkspaceCardView: View {
     let key: String
     let windows: [AeroSpaceWindow]
@@ -30,19 +60,7 @@ struct WorkspaceCardView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(windows) { window in
-                            HStack(spacing: 10) {
-                                Image(nsImage: window.appIcon).resizable().frame(width: 22, height: 22)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(window.appName).font(.body).lineLimit(1)
-                                    if !window.windowTitle.isEmpty {
-                                        Text(window.windowTitle).font(.footnote).foregroundColor(.secondary).lineLimit(1)
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .draggable(window.id)
-                            .onTapGesture { focusWindow(windowId: window.id) }
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                            WindowRowView(window: window)
                         }
                     }
                 }
