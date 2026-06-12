@@ -136,6 +136,32 @@ func fetchAeroSpaceWindows(completion: @escaping ([AeroSpaceWindow]) -> Void) {
     }
 }
 
+func fetchActiveWorkspace(completion: @escaping (String?) -> Void) {
+    DispatchQueue.global(qos: .userInteractive).async {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/aerospace")
+        process.arguments = ["list-workspaces", "--focused"]
+
+        let outputPipe = Pipe()
+        process.standardOutput = outputPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            guard let workspace = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !workspace.isEmpty else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            DispatchQueue.main.async { completion(workspace) }
+        } catch {
+            DispatchQueue.main.async { completion(nil) }
+        }
+    }
+}
+
 func switchToWorkspace(_ workspace: String) {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/aerospace")
@@ -148,6 +174,7 @@ struct WorkspaceCardView: View {
     let key: String
     let windows: [AeroSpaceWindow]
     let isLoading: Bool
+    let isActive: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -216,12 +243,23 @@ struct WorkspaceCardView: View {
         }
         .padding(16)
         .frame(width: 240, height: 170, alignment: .topLeading)
-        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow))
+        .background(
+            ZStack {
+                VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
+                if isActive {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(NSColor.controlAccentColor).opacity(0.12))
+                }
+            }
+        )
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                .stroke(isActive
+                    ? Color(NSColor.controlAccentColor)
+                    : Color(NSColor.separatorColor).opacity(0.3),
+                        lineWidth: isActive ? 2.5 : 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 16))
         .onTapGesture {
@@ -235,6 +273,7 @@ struct GridHUDView: View {
     
     @State private var workspaceData: [String: [AeroSpaceWindow]] = [:]
     @State private var isLoading = true
+    @State private var activeWorkspace: String? = nil
     @State private var bgOpacity: Double = 0.0  // Track background state for animation
     
     init(matrix: [[String]]) {
@@ -253,7 +292,7 @@ struct GridHUDView: View {
             ForEach(gridKeys, id: \.self) { row in
                 HStack(spacing: 20) {
                     ForEach(row, id: \.self) { key in
-                        WorkspaceCardView(key: key, windows: workspaceData[key] ?? [], isLoading: isLoading)
+                        WorkspaceCardView(key: key, windows: workspaceData[key] ?? [], isLoading: isLoading, isActive: key == activeWorkspace)
                     }
                 }
             }
@@ -271,7 +310,11 @@ struct GridHUDView: View {
             withAnimation(.linear(duration: 0.12)) {
                 self.bgOpacity = 0.25
             }
-            
+
+            fetchActiveWorkspace { workspace in
+                self.activeWorkspace = workspace
+            }
+
             fetchAeroSpaceWindows { windows in
                 self.workspaceData = Dictionary(grouping: windows, by: { $0.workspace })
                 self.isLoading = false
