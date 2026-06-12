@@ -1,12 +1,25 @@
-# AeroHUD
+<h1 align="center">AeroHUD</h1>
 
-Native macOS SwiftUI grid overview for [AeroSpace](https://github.com/nikitabobko/AeroSpace/).
+<h4 align="center">Native macOS SwiftUI grid overview for <a href="https://github.com/nikitabobko/AeroSpace/">AeroSpace</a>.</h4>
 
-![Screenshot](./screenshot.png)
+<p align="center"><img src="./screenshot.png" height="600" /></p>
 
-This was designed for my own estoeric workflow, where I have nine desktops in 3x3 grid.
+
+### About
+
+A little utility designed for my own esoteric workflow, where I have nine desktops in 3x3 grid.
 
 This app helps me recall which window was where, and quickly switch desktops.
+
+Also supports dragging and dropping windows between workspaces.
+
+### Preview
+
+
+
+https://github.com/user-attachments/assets/10762393-a880-4095-aa49-6aa04d55162d
+
+
 
 ### Install
 
