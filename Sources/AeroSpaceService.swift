@@ -5,7 +5,7 @@ func fetchAeroSpaceWindows(completion: @escaping ([AeroSpaceWindow]) -> Void) {
     DispatchQueue.global(qos: .userInteractive).async {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/aerospace")
-        process.arguments = ["list-windows", "--all", "--format", "%{window-id}|%{app-name}|%{window-title}|%{workspace}"]
+        process.arguments = ["list-windows", "--all", "--format", "%{window-id}###%{app-name}###%{window-title}###%{workspace}"]
 
         let outputPipe = Pipe()
         process.standardOutput = outputPipe
@@ -25,7 +25,7 @@ func fetchAeroSpaceWindows(completion: @escaping ([AeroSpaceWindow]) -> Void) {
             let workspaceShared = NSWorkspace.shared
 
             for line in lines {
-                let components = line.components(separatedBy: "|")
+                let components = line.components(separatedBy: "###")
                 if components.count >= 4 {
                     let id = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
                     let appName = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
