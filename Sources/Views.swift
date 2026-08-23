@@ -92,6 +92,7 @@ struct WindowRowView: View {
                 .fill(Color(NSColor.separatorColor))
                 .opacity(isHovered ? 0.3 : 0)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 6))
         .onHover { isHovered = $0 }
         .draggable(window.id)
         .onTapGesture { focusWindow(windowId: window.id) }
