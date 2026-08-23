@@ -1,6 +1,74 @@
 import AppKit
 import SwiftUI
 
+@available(macOS 26.0, *)
+struct LiquidGlassBackground: View {
+    let cornerRadius: CGFloat
+    let isActive: Bool
+    let isDropTargeted: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(.clear)
+                .glassEffect(in: RoundedRectangle(cornerRadius: cornerRadius))
+            if isDropTargeted || isActive {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color(NSColor.controlAccentColor).opacity(isDropTargeted ? 0.25 : 0.12))
+            }
+        }
+    }
+}
+
+@available(macOS 26.0, *)
+struct LiquidGlassOverlay: View {
+    let cornerRadius: CGFloat
+    let isActive: Bool
+    let isDropTargeted: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .stroke(
+                isDropTargeted || isActive
+                    ? Color(NSColor.controlAccentColor)
+                    : Color(NSColor.separatorColor).opacity(0.3),
+                lineWidth: isDropTargeted ? 3 : isActive ? 2.5 : 1
+            )
+    }
+}
+
+struct LegacyGlassBackground: View {
+    let cornerRadius: CGFloat
+    let isActive: Bool
+    let isDropTargeted: Bool
+
+    var body: some View {
+        ZStack {
+            VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
+            if isDropTargeted || isActive {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color(NSColor.controlAccentColor).opacity(isDropTargeted ? 0.25 : 0.12))
+            }
+        }
+    }
+}
+
+struct LegacyGlassOverlay: View {
+    let cornerRadius: CGFloat
+    let isActive: Bool
+    let isDropTargeted: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .stroke(
+                isDropTargeted || isActive
+                    ? Color(NSColor.controlAccentColor)
+                    : Color(NSColor.separatorColor).opacity(0.3),
+                lineWidth: isDropTargeted ? 3 : isActive ? 2.5 : 1
+            )
+    }
+}
+
 struct WindowRowView: View {
     let window: AeroSpaceWindow
 
@@ -79,18 +147,38 @@ struct WorkspaceCardView: View {
         .padding(16)
         .frame(width: 240, height: 170, alignment: .topLeading)
         .background(
-            ZStack {
-                VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
-                if isDropTargeted || isActive {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(NSColor.controlAccentColor).opacity(isDropTargeted ? 0.25 : 0.12))
+            Group {
+                if #available(macOS 26.0, *) {
+                    LiquidGlassBackground(
+                        cornerRadius: 16,
+                        isActive: isActive,
+                        isDropTargeted: isDropTargeted
+                    )
+                } else {
+                    LegacyGlassBackground(
+                        cornerRadius: 16,
+                        isActive: isActive,
+                        isDropTargeted: isDropTargeted
+                    )
                 }
             }
         )
-        .cornerRadius(16)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(isDropTargeted || isActive ? Color(NSColor.controlAccentColor) : Color(NSColor.separatorColor).opacity(0.3), lineWidth: isDropTargeted ? 3 : isActive ? 2.5 : 1)
+            Group {
+                if #available(macOS 26.0, *) {
+                    LiquidGlassOverlay(
+                        cornerRadius: 16,
+                        isActive: isActive,
+                        isDropTargeted: isDropTargeted
+                    )
+                } else {
+                    LegacyGlassOverlay(
+                        cornerRadius: 16,
+                        isActive: isActive,
+                        isDropTargeted: isDropTargeted
+                    )
+                }
+            }
         )
         .contentShape(RoundedRectangle(cornerRadius: 16))
         .onTapGesture { switchToWorkspace(key) }
